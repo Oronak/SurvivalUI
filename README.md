@@ -5,7 +5,8 @@ The default UI uses the vanilla tradeskill UI and has problems loading it's reci
 
 It's commands are:
 * /svui reset
-* /svui scale
+* /svui scale 
+  * The scale is multiplied. For example, a 150% scale would be /svui scale 1.5
 
 It looks like this:
 
