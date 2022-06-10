@@ -7,6 +7,8 @@ It looks like this:
 
 ![image](https://user-images.githubusercontent.com/107281337/173155391-2b73c2bf-c6ad-4fd6-8828-a69551633964.png)
 
+If you don't have the materials to make a Fishing Boat, Dim Torch or Traveler's Tent, they will be grayed out and unclickable.
+
 I've also added custom tooltips to make the fishing boat and tent's benefits more obvious
 
 ![image](https://user-images.githubusercontent.com/107281337/173155816-13cfc825-ced7-439a-aa53-7fb874f37c5f.png)
