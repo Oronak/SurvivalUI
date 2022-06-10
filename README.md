@@ -1,6 +1,7 @@
 # SurvivalUI
 Creates a GUI for the Survival Profession in TurtleWoW
-The default UI uses the tradeskill UI and has problems loading it's recipes. This addon will give it a unique UI based off assets from the Archeology frame in retail WoW.
+
+The default UI uses the vanilla tradeskill UI and has problems loading it's recipes. This addon will give it a unique UI based off assets from the Archeology frame from retail WoW.
 
 It looks like this:
 
