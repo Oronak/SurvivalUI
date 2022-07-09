@@ -10,9 +10,11 @@ It's commands are:
 
 It looks like this:
 
-![image](https://user-images.githubusercontent.com/107281337/173155391-2b73c2bf-c6ad-4fd6-8828-a69551633964.png)
+![Untitled](https://user-images.githubusercontent.com/107281337/178092035-6933d245-14cc-4d12-9ea8-2758b655e96d.png)
 
-If you don't have the materials to make a Fishing Boat, Dim Torch or Traveler's Tent, they will be grayed out and unclickable.
+You can rearrange this order by clicking the lock icon next to the close icon on the top right
+
+If you don't have the materials to make anything, they will be grayed out and unclickable.
 
 I've also added custom tooltips to make the fishing boat and tent's benefits more obvious
 
