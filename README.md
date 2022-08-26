@@ -16,7 +16,3 @@ It looks like this:
 You can rearrange this order by clicking the lock icon next to the close icon on the top right
 
 If you don't have the materials to make anything, they will be grayed out and unclickable.
-
-![image](https://user-images.githubusercontent.com/107281337/173155816-13cfc825-ced7-439a-aa53-7fb874f37c5f.png)
-
-![image](https://user-images.githubusercontent.com/107281337/173155825-6ee998c5-e3cb-462d-a778-34f6daa34d1a.png)
