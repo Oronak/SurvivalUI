@@ -1,6 +1,6 @@
 ## Interface: 11200
 ## Title: SurvivalUI
-## Version: 1.2
+## Version: 1.3
 ## Notes: A fancier survival UI for use on TurtleWoW
 ## Author: Oronak
 ## SavedVariables: SV_UI_X_POS, SV_UI_Y_POS, SV_UI_SCALE, SV_UI_ORDER

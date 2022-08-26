@@ -1,7 +1,8 @@
 # SurvivalUI
 Creates a GUI for the Survival Profession in TurtleWoW
 
-The default UI uses the vanilla tradeskill UI and has problems loading it's recipes. This addon will give it a unique UI based off assets from the Archeology frame from retail WoW.
+This addon will give it a unique UI based off assets from the Archeology frame from retail WoW.
+This was made back when the default UI for the Survival Profession was broken, but updated to work with the current stuff.
 
 It's commands are:
 * /svui reset
@@ -15,8 +16,6 @@ It looks like this:
 You can rearrange this order by clicking the lock icon next to the close icon on the top right
 
 If you don't have the materials to make anything, they will be grayed out and unclickable.
-
-I've also added custom tooltips to make the fishing boat and tent's benefits more obvious
 
 ![image](https://user-images.githubusercontent.com/107281337/173155816-13cfc825-ced7-439a-aa53-7fb874f37c5f.png)
 

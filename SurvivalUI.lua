@@ -4,9 +4,13 @@ SV_UI_Y_POS = -95;
 SV_UI_SCALE = 1;
 SV_UI_ORDER = {
 	[1] = "Bright Campfire",
-	[2] = "Dim Torch",
-	[3] = "Traveler's Tent",
-	[4] = "Fishing Boat"
+	[2] = "Traveler's Tent",
+	[3] = "Fishing Boat",
+	[4] = "Simple Wooden Planter",
+	[5] = "Murloc's Flippers",
+	[6] = "Repaired Electro-Lantern",
+	[7] = "Iron Lantern",
+	[8] = "Dim Torch"
 }
 
 --Debug Flag
@@ -29,12 +33,17 @@ local SurvivalUI_Craft_Slot_MultiCraft = {};
 local SurvivalUI_Ready = false;
 local SurvivalUI_IsRearrangeUnlocked = false;
 local SurvivalUI_Tradeskill_MovedAway = false;
+local SurvivalUI_Page = 1;
 
 --Compatability checks
 local ATSW = IsAddOnLoaded("AdvancedTradeSkillWindow");
 
 --Skill reference
-local numSurvivalSkills = 4; --Right now making this go above 4 will cause problems. Will make it scalable some other time if it ever matters
+local numSurvivalSkills = 8;
+--SVUI format for handling both spells and crafting stuff
+--If the type is spell, it needs the spell ID and it's reagents since I can't fetch those easily
+--If the type is crafting, just provide it's name and whether or not you want the UI to show up for making multiple of the item. 
+--Leave SKILLINDEX as nil, it will be populated by the addon
 local survivalSkills = {
 	[1] = { 
 			["NAME"] = "Bright Campfire",
@@ -62,15 +71,60 @@ local survivalSkills = {
 			["TYPE"] = "TRADESKILL",
 			["MULTI"] = false,
 			["SKILLINDEX"] = nil
+		  },
+	[5] = {
+			["NAME"] ="Simple Wooden Planter",
+			["TYPE"] = "TRADESKILL",
+			["MULTI"] = true,
+			["SKILLINDEX"] = nil
+		  },
+	[6] = {
+			["NAME"] = "Murloc's Flippers",
+			["TYPE"] = "TRADESKILL",
+			["MULTI"] = true,
+			["SKILLINDEX"] = nil
+		  },
+	[7] = {
+			["NAME"] ="Repaired Electro-Lantern",
+			["TYPE"] = "TRADESKILL",
+			["MULTI"] = true,
+			["SKILLINDEX"] = nil
+		  },
+	[8] = {
+			["NAME"] ="Iron Lantern",
+			["TYPE"] = "TRADESKILL",
+			["MULTI"] = true,
+			["SKILLINDEX"] = nil
 		  }
 };
 
+--Regeant item ids. Add them as needed
+--Used for both spells and crafting
+--Check the turtleDB for accurate ids
 local survivalReagents = {
 	["Simple Wood"] = 4470,
-	["Handful of Copper Bolts"] = 4359,
-	["Linen Cloth"] = 2589,
+	["Flint and Tinder"] = 4471,
+	["Sturdy Rope"] = 50231,
 	["Unlit Poor Torch"] = 6183,
-	["Flint and Tinder"] = 4471
+		
+	["Linen Cloth"] = 2589,
+	["Wool Cloth"] = 2592,
+	["Heavy Silken Thread"] = 8343,
+	["Heavy Leather"] = 4234,
+	["Thick Murloc Scale"] = 5785,
+
+	["Handful of Copper Bolts"] = 4359,
+	["Whirring Bronze Gizmo"] = 4375,
+	["Silver Contact"] = 4404,
+	["Iron Bar"] = 3575,
+	["Gold Power Core"] = 10558,
+	["Mithril Casing"] = 10561,
+	["Broken Electro-lantern"] = 1630,
+	["Flask of Oil"] = 814,
+	
+	["Fish Oil"] = 17058,
+	["Blackmouth Oil"] = 6370,
+	["Swim Speed Potion"] = 6372
 }
 
 --Bindings
@@ -162,6 +216,19 @@ function SurvivalUI_Command(command)
 		SV_UI_SCALE = 1;
 		SurvivalUI_GUI:SetPoint("TOPLEFT", "UIParent", "TOPLEFT", SV_UI_X_POS, SV_UI_Y_POS);
 		SurvivalUI_GUI:SetScale(SV_UI_SCALE);
+		
+		SV_UI_ORDER[1] = "Bright Campfire";
+		SV_UI_ORDER[2] = "Traveler's Tent";
+		SV_UI_ORDER[3] = "Fishing Boat";
+		SV_UI_ORDER[4] = "Simple Wooden Planter";
+		SV_UI_ORDER[5] = "Murloc's Flippers";
+		SV_UI_ORDER[6] = "Repaired Electro-Lantern";
+		SV_UI_ORDER[7] = "Iron Lantern";
+		SV_UI_ORDER[8] = "Dim Torch";
+		
+		SurvivalUI_Check_Order();
+		SurvivalUI_UI_Update_List();
+		
 	elseif (string.find(command, "scale")) then
 		scaleTo = string.sub(command,7);
 		if tonumber(scaleTo) then 
@@ -172,7 +239,7 @@ function SurvivalUI_Command(command)
 			DEFAULT_CHAT_FRAME:AddMessage("You need to give it a number to scale by.");
 		end
 	else
-		DEFAULT_CHAT_FRAME:AddMessage("To reset the SurivalUI to it's default position/scale:\n   /svui reset");
+		DEFAULT_CHAT_FRAME:AddMessage("To reset the SurivalUI to it's default position, scale & order:\n   /svui reset");
 		DEFAULT_CHAT_FRAME:AddMessage("Set the scale of the ui, use:\n   /svui scale X\n   NOTE: This is done multiplicatively, such as a 150% scale is scale 1.5\n              I wouldn't recommend going past a scale of 5.");
 	end
 end
@@ -335,7 +402,7 @@ function SurvivalUI_UI_Setup()
 			this:SetPushedTexture("Interface\\AddOns\\SurvivalUI\\assets\\lockbutton-locked-down");
 			SurvivalUI_IsRearrangeUnlocked = false;
 			
-			for i=1, numSurvivalSkills, 1 do
+			for i=1, 4, 1 do
 				SurvivalUI_Craft_Slot_RearrangeButtons[i]["UP"]:Hide();
 				SurvivalUI_Craft_Slot_RearrangeButtons[i]["DOWN"]:Hide();
 			end	
@@ -344,7 +411,7 @@ function SurvivalUI_UI_Setup()
 			this:SetPushedTexture("Interface\\AddOns\\SurvivalUI\\assets\\lockbutton-unlocked-down");
 			SurvivalUI_IsRearrangeUnlocked = true;
 			
-			for i=1, numSurvivalSkills, 1 do
+			for i=1, 4, 1 do
 				SurvivalUI_Craft_Slot_RearrangeButtons[i]["UP"]:Show();
 				SurvivalUI_Craft_Slot_RearrangeButtons[i]["DOWN"]:Show();
 			end
@@ -385,7 +452,7 @@ function SurvivalUI_UI_Setup()
 	SurvivalUI_Skill_Level_Text:SetPoint("LEFT", SurvivalUI_Skill_Level_Frame, "LEFT", 85, -3)
 	
 	--Setup the clickable slots
-	for i=1, numSurvivalSkills, 1 do
+	for i=1, 4, 1 do
 		SurvivalUI_Craft_Slots[i] = {};
 		SurvivalUI_Craft_Slots[i]["FRAME"] = CreateFrame("Button", "SurvivalUI_Craft_Slots_"..i, SurvivalUI_GUI);
 		SurvivalUI_Craft_Slots[i]["FRAME"]:SetHeight(27);
@@ -457,9 +524,13 @@ function SurvivalUI_UI_Setup()
 		end	
 	
 		--Rearranging buttons handling
-		local currPos = i;
-			SurvivalUI_Craft_Slot_RearrangeButtons[i]["UP"]:SetScript("OnMouseUp", 
+		local iterPos = i;
+		SurvivalUI_Craft_Slot_RearrangeButtons[i]["UP"]:SetScript("OnMouseUp", 
 			function()		
+				currPos = iterPos + ((SurvivalUI_Page-1)*4);
+				if(debug) then
+					DEFAULT_CHAT_FRAME:AddMessage("currPos: "..currPos);
+				end
 				if(currPos-1 ~= 0) then
 					local tmpSVSkillLink = survivalSkills[currPos];
 					survivalSkills[currPos] = survivalSkills[currPos-1];
@@ -469,48 +540,29 @@ function SurvivalUI_UI_Setup()
 					SV_UI_ORDER[currPos] = SV_UI_ORDER[currPos-1];
 					SV_UI_ORDER[currPos-1] = tmpSVSaveLink;
 					
-					--Rehide the reagents and craft counts to avoid persisting visual
-					--Side effect of this approach is debug showing for them vanishes but who cares
-					for j=1, numSurvivalSkills do
-						for k=1, 4 do
-							SurvivalUI_Craft_Slot_Reagents[j][k]["FRAME"]:Hide();
-							SurvivalUI_Craft_Slot_Reagents[j][k]["TEXTURE"]:SetVertexColor(1, 1, 1);
-							
-							SurvivalUI_Craft_Slot_MultiCraft[j]["UP"]:Hide();
-							SurvivalUI_Craft_Slot_MultiCraft[j]["DOWN"]:Hide();
-							SurvivalUI_Craft_Slot_MultiCraft[j]["CRAFTNUM"]:Hide();	
-						end
-					end
 				else --wrap around
-					local tmpSVSkillLink = survivalSkills[currPos];
-					survivalSkills[currPos] = survivalSkills[numSurvivalSkills];
+					local tmpSVSkillLink = survivalSkills[1];
+					survivalSkills[1] = survivalSkills[numSurvivalSkills];
 					survivalSkills[numSurvivalSkills] = tmpSVSkillLink;
 					
 					local tmpSVSaveLink = SV_UI_ORDER[currPos];
 					SV_UI_ORDER[currPos] = SV_UI_ORDER[numSurvivalSkills];
 					SV_UI_ORDER[numSurvivalSkills] = tmpSVSaveLink;
-					
-					--Rehide the reagents and craft counts to avoid persisting visual
-					--Side effect of this approach is debug showing for them vanishes but who cares
-					for j=1, numSurvivalSkills do
-						for k=1, 4 do
-							SurvivalUI_Craft_Slot_Reagents[j][k]["FRAME"]:Hide();
-							SurvivalUI_Craft_Slot_Reagents[j][k]["TEXTURE"]:SetVertexColor(1, 1, 1);
-							
-							SurvivalUI_Craft_Slot_MultiCraft[j]["UP"]:Hide();
-							SurvivalUI_Craft_Slot_MultiCraft[j]["DOWN"]:Hide();
-							SurvivalUI_Craft_Slot_MultiCraft[j]["CRAFTNUM"]:Hide();	
-						end
-					end
 				end
+				
+				--Rehide the reagents to avoid persisting visual
+				--Side effect of this approach is debug showing for them vanishes but who cares
+				SurvivalUI_Hide_Slots();
+				SurvivalUI_Hide_Reagents();
 				SurvivalUI_UI_Update_List();
 			end)
 			
 			SurvivalUI_Craft_Slot_RearrangeButtons[i]["DOWN"]:SetScript("OnMouseUp", 
 			function()
-				_, _, _, xOfs, yOfs = this:GetPoint();
-				this:SetPoint("RIGHT", this:GetParent(), xOfs-0.3, yOfs+0.3);
-				
+				currPos = iterPos + ((SurvivalUI_Page-1)*4);
+				if(debug) then
+					DEFAULT_CHAT_FRAME:AddMessage("currPos: "..currPos);
+				end
 				if(currPos+1 ~= numSurvivalSkills+1) then
 					local tmpSVSkillLink = survivalSkills[currPos];
 					survivalSkills[currPos] = survivalSkills[currPos+1];
@@ -520,18 +572,6 @@ function SurvivalUI_UI_Setup()
 					SV_UI_ORDER[currPos] = SV_UI_ORDER[currPos+1];
 					SV_UI_ORDER[currPos+1] = tmpSVSaveLink;
 					
-					--Rehide the reagents to avoid persisting visual
-					--Side effect of this approach is debug showing for them vanishes but who cares
-					for j=1, numSurvivalSkills do
-						for k=1, 4 do
-							SurvivalUI_Craft_Slot_Reagents[j][k]["FRAME"]:Hide();
-							SurvivalUI_Craft_Slot_Reagents[j][k]["TEXTURE"]:SetVertexColor(1, 1, 1);
-							
-							SurvivalUI_Craft_Slot_MultiCraft[j]["UP"]:Hide();
-							SurvivalUI_Craft_Slot_MultiCraft[j]["DOWN"]:Hide();
-							SurvivalUI_Craft_Slot_MultiCraft[j]["CRAFTNUM"]:Hide();	
-						end
-					end
 				else --wrap around
 					local tmpSVSkillLink = survivalSkills[currPos];
 					survivalSkills[currPos] = survivalSkills[1];
@@ -541,30 +581,24 @@ function SurvivalUI_UI_Setup()
 					SV_UI_ORDER[currPos] = SV_UI_ORDER[1];
 					SV_UI_ORDER[1] = tmpSVSaveLink;
 					
-					--Rehide the reagents to avoid persisting visual
-					--Side effect of this approach is debug showing for them vanishes but who cares
-					for j=1, numSurvivalSkills do
-						for k=1, 4 do
-							SurvivalUI_Craft_Slot_Reagents[j][k]["FRAME"]:Hide();
-							SurvivalUI_Craft_Slot_Reagents[j][k]["TEXTURE"]:SetVertexColor(1, 1, 1);
-							
-							SurvivalUI_Craft_Slot_MultiCraft[j]["UP"]:Hide();
-							SurvivalUI_Craft_Slot_MultiCraft[j]["DOWN"]:Hide();
-							SurvivalUI_Craft_Slot_MultiCraft[j]["CRAFTNUM"]:Hide();	
-						end
-					end
+
+
 				end
+				--Rehide the reagents to avoid persisting visual
+				--Side effect of this approach is debug showing for them vanishes but who cares
+				SurvivalUI_Hide_Slots();
+				SurvivalUI_Hide_Reagents();
 				SurvivalUI_UI_Update_List();
 			end)
 
 		--Reagent Icons setup
 		SurvivalUI_Craft_Slot_Reagents[i] = {};
-		for j=1, 4, 1 do
+		for j=1, 6, 1 do
 			SurvivalUI_Craft_Slot_Reagents[i][j] = {};
 			SurvivalUI_Craft_Slot_Reagents[i][j]["FRAME"] = CreateFrame("Button", "SurvivalUI_Craft_Slot_Reagents_"..i, SurvivalUI_Craft_Slots[i]["FRAME"]);
-			SurvivalUI_Craft_Slot_Reagents[i][j]["FRAME"]:SetPoint("TOPLEFT", SurvivalUI_Craft_Slots[i]["FRAME"], "TOPLEFT", 177-((j-1)*26.2), -0.5);	
-			SurvivalUI_Craft_Slot_Reagents[i][j]["FRAME"]:SetHeight(26.1);
-			SurvivalUI_Craft_Slot_Reagents[i][j]["FRAME"]:SetWidth(26.1);
+			SurvivalUI_Craft_Slot_Reagents[i][j]["FRAME"]:SetPoint("TOPLEFT", SurvivalUI_Craft_Slots[i]["FRAME"], "TOPLEFT", 185-((j-1)*18), -8.2);	
+			SurvivalUI_Craft_Slot_Reagents[i][j]["FRAME"]:SetHeight(18);
+			SurvivalUI_Craft_Slot_Reagents[i][j]["FRAME"]:SetWidth(18);
 			SurvivalUI_Craft_Slot_Reagents[i][j]["TEXTURE"] = SurvivalUI_Craft_Slot_Reagents[i][j]["FRAME"]:CreateTexture(nil, "OVERLAY");
 			SurvivalUI_Craft_Slot_Reagents[i][j]["TEXTURE"]:SetAllPoints(SurvivalUI_Craft_Slot_Reagents[i][j]["FRAME"]);
 			
@@ -579,7 +613,7 @@ function SurvivalUI_UI_Setup()
 			
 			--Supply/Required text
 			SurvivalUI_Craft_Slot_Reagents[i][j]["COUNT"] = SurvivalUI_Craft_Slot_Reagents[i][j]["FRAME"]:CreateFontString(nil, "OVERLAY", NumberFontNormal);
-			SurvivalUI_Craft_Slot_Reagents[i][j]["COUNT"]:SetFont("Fonts\\FRIZQT__.TTF", 7, "OUTLINE");
+			SurvivalUI_Craft_Slot_Reagents[i][j]["COUNT"]:SetFont("Fonts\\FRIZQT__.TTF", 5.4, "OUTLINE");
 			SurvivalUI_Craft_Slot_Reagents[i][j]["COUNT"]:SetText("N/A");
 			SurvivalUI_Craft_Slot_Reagents[i][j]["COUNT"]:SetPoint("BOTTOMRIGHT", SurvivalUI_Craft_Slot_Reagents[i][j]["FRAME"], "BOTTOMRIGHT", -1, 2)
 			SurvivalUI_Craft_Slot_Reagents[i][j]["COUNT"]:SetJustifyH("RIGHT");
@@ -606,8 +640,6 @@ function SurvivalUI_UI_Setup()
 		SurvivalUI_Craft_Slot_Names[i]["NAME"]:SetJustifyH("CENTER");
 		SurvivalUI_Craft_Slot_Names[i]["NAME"]:Hide();
 		
-		SurvivalUI_Craft_Slot_Names[i]["NAME"]:Hide();
-		
 		SurvivalUI_Craft_Slot_Names[i]["COOLDOWN"] = skillNameFrame:CreateFontString(nil, "ARTWORK");
 		SurvivalUI_Craft_Slot_Names[i]["COOLDOWN"]:SetFont("Fonts\\FRIZQT__.TTF", 6);
 		SurvivalUI_Craft_Slot_Names[i]["COOLDOWN"]:SetTextColor(100/255, 0, 0);
@@ -616,9 +648,7 @@ function SurvivalUI_UI_Setup()
 		SurvivalUI_Craft_Slot_Names[i]["COOLDOWN"]:SetJustifyH("RIGHT");
 		SurvivalUI_Craft_Slot_Names[i]["COOLDOWN"]:Hide();
 		
-		SurvivalUI_Craft_Slot_Names[i]["COOLDOWN"]:Hide();
-		
-		--Multi craft option for crafting stuff that would warrant it (atm just dim torch)
+		--Multi craft option for crafting stuff that would warrant it
 		SurvivalUI_Craft_Slot_MultiCraft[i] = {};
 		SurvivalUI_Craft_Slot_MultiCraft[i]["UP"] = CreateFrame("Button", "SurvivalUI_Craft_Slot_MultiCraft_Up_"..i, SurvivalUI_Craft_Slots[i]["FRAME"]);
 		SurvivalUI_Craft_Slot_MultiCraft[i]["UP"]:SetHeight(10);
@@ -630,7 +660,7 @@ function SurvivalUI_UI_Setup()
 		local currCraftSlot = i;
 		SurvivalUI_Craft_Slot_MultiCraft[i]["UP"]:SetScript("OnClick", 
 		function()
-			for j=1, numSurvivalSkills, 1 do
+			for j=1, 4, 1 do
 				SurvivalUI_Craft_Slot_MultiCraft[j]["CRAFTNUM"]:ClearFocus();
 			end
 			
@@ -649,7 +679,7 @@ function SurvivalUI_UI_Setup()
 		SurvivalUI_Craft_Slot_MultiCraft[i]["DOWN"]:SetPoint("TOPLEFT", SurvivalUI_Craft_Slots[i]["FRAME"], "TOPLEFT", 29.1, -17.2);
 		SurvivalUI_Craft_Slot_MultiCraft[i]["DOWN"]:SetScript("OnClick", 
 		function()
-			for j=1, numSurvivalSkills, 1 do
+			for j=1, 4, 1 do
 				SurvivalUI_Craft_Slot_MultiCraft[j]["CRAFTNUM"]:ClearFocus();
 			end
 			
@@ -703,7 +733,99 @@ function SurvivalUI_UI_Setup()
 			SurvivalUI_Craft_Slot_MultiCraft[i]["CRAFTNUM"]:Show();
 		end	
 		
-		--Loaded ordering setup 
+	end
+	
+	--Pages buttons
+	local backPageButton = CreateFrame("Button", "backPageButton", SurvivalUI_GUI);
+	backPageButton:SetHeight(19);
+	backPageButton:SetWidth(19);
+	backPageButton:SetPoint("BOTTOMRIGHT", "SurvivalUI_GUI", "BOTTOMRIGHT", -40, 8);
+	
+	backPageButton:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD");
+	backPageButton:SetNormalTexture("Interface\\Buttons\\UI-SpellbookIcon-PrevPage-Up");
+	backPageButton:SetPushedTexture("Interface\\Buttons\\UI-SpellbookIcon-PrevPage-Down");
+	backPageButton:SetDisabledTexture("Interface\\Buttons\\UI-SpellbookIcon-PrevPage-Disabled");
+	backPageButton:SetScript("OnClick", 
+	function()
+		if(SurvivalUI_Page-1 ~= 0) then
+			SurvivalUI_Page = SurvivalUI_Page - 1;
+		else
+			SurvivalUI_Page = floor(numSurvivalSkills/4);
+		end
+		PlaySound("igAbiliityPageTurn", "master");
+		
+		SurvivalUI_Hide_Slots();
+		SurvivalUI_Hide_Reagents();
+		SurvivalUI_UI_Update_List();
+	end)
+	
+	local nextPageButton = CreateFrame("Button", "nextPageButton", SurvivalUI_GUI);
+	nextPageButton:SetHeight(19);
+	nextPageButton:SetWidth(19);
+	nextPageButton:SetPoint("BOTTOMRIGHT", "SurvivalUI_GUI", "BOTTOMRIGHT", -20, 8);
+	
+	nextPageButton:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD");
+	nextPageButton:SetNormalTexture("Interface\\Buttons\\UI-SpellbookIcon-NextPage-Up");
+	nextPageButton:SetPushedTexture("Interface\\Buttons\\UI-SpellbookIcon-NextPage-Down");
+	nextPageButton:SetDisabledTexture("Interface\\Buttons\\UI-SpellbookIcon-NextPage-Disabled");
+	
+	nextPageButton:SetScript("OnClick", 
+	function()
+		if( ((SurvivalUI_Page + 1)*4) - numSurvivalSkills < 4)  then
+			SurvivalUI_Page = SurvivalUI_Page + 1;
+		else
+			SurvivalUI_Page = 1;
+		end
+		PlaySound("igAbiliityPageTurn", "master");
+		
+		SurvivalUI_Hide_Slots();
+		SurvivalUI_Hide_Reagents();
+		SurvivalUI_UI_Update_List();
+	end)
+	
+	if(debug) then
+		backPageButton:CreateTexture(nil, "OVERLAY");
+		local backPageButtonBackground = backPageButton:CreateTexture(nil, "OVERLAY");
+		backPageButtonBackground:SetAllPoints(backPageButton);
+		backPageButtonBackground:SetTexture(0.1, 0.3, 0.4, 0.5);
+		
+		nextPageButton:CreateTexture(nil, "OVERLAY");
+		local nextPageButtonBackground = nextPageButton:CreateTexture(nil, "OVERLAY");
+		nextPageButtonBackground:SetAllPoints(backPageButton);
+		nextPageButtonBackground:SetTexture(0.1, 0.3, 0.4, 0.5);
+		
+	end	
+	
+	SurvivalUI_Check_Order();
+	SurvivalUI_GUI:Hide();
+end
+
+function SurvivalUI_Hide_Slots()
+	for i=1, 4 do
+		SurvivalUI_Craft_Slot_Names[i]["NAME"]:Hide();
+		SurvivalUI_Craft_Slot_Names[i]["COOLDOWN"]:Hide();
+		SurvivalUI_Craft_Slots[i]["FRAME"]:Hide();
+	end
+end
+
+--Re-hides all the reagents slots so that they can be reshown as needed
+function SurvivalUI_Hide_Reagents()
+	for j=1, 4 do
+		for k=1, 6 do
+			SurvivalUI_Craft_Slot_Reagents[j][k]["FRAME"]:Hide();
+			SurvivalUI_Craft_Slot_Reagents[j][k]["TEXTURE"]:SetVertexColor(1, 1, 1);
+			
+			SurvivalUI_Craft_Slot_MultiCraft[j]["UP"]:Hide();
+			SurvivalUI_Craft_Slot_MultiCraft[j]["DOWN"]:Hide();
+			SurvivalUI_Craft_Slot_MultiCraft[j]["CRAFTNUM"]:Hide();	
+		end
+	end
+end
+
+--Checks the current layout against the saved layout
+--Moves stuff around as needed
+function SurvivalUI_Check_Order()
+	for i=1, numSurvivalSkills, 1 do
 		if(survivalSkills[i]["NAME"] ~= SV_UI_ORDER[i]) then			
 			for j=1, numSurvivalSkills, 1 do
 				if(survivalSkills[j]["NAME"] == SV_UI_ORDER[i]) then
@@ -718,9 +840,7 @@ function SurvivalUI_UI_Setup()
 				end
 			end
 		end
-		
 	end
-	SurvivalUI_GUI:Hide();
 end
 
 --Part where it checks your skill level and what you know, and makes adjustments
@@ -731,7 +851,12 @@ function SurvivalUI_UI_Update_List()
 	--Done to avoid any issue where the next loop and the index would be misaligned by rearranging the rows
 	for i=1, numSurvivalSkills, 1 do
 		if(survivalSkills[i]["TYPE"] == "TRADESKILL") then
-			local skillName, _, _, _ = GetTradeSkillInfo(skillIndexCheck);
+			local skillName, skillTest = GetTradeSkillInfo(skillIndexCheck);
+			--Skip past the headers
+			if(skillTest == "header") then
+				skillIndexCheck = skillIndexCheck + 1;
+				skillName = GetTradeSkillInfo(skillIndexCheck);
+			end
 			for j=1, numSurvivalSkills, 1 do
 				if(survivalSkills[j]["NAME"] == skillName) then
 					survivalSkills[j]["SKILLINDEX"] = skillIndexCheck;
@@ -743,17 +868,19 @@ function SurvivalUI_UI_Update_List()
 			skillIndexCheck = skillIndexCheck + 1;
 		end
 	end
+	
+	for i=1, 4, 1 do	
+		local pagePoint = i+(4*(SurvivalUI_Page-1));
 
-	for i=1, numSurvivalSkills, 1 do	
-		if(survivalSkills[i]["TYPE"] == "TRADESKILL" and survivalSkills[i]["SKILLINDEX"] ~= nil) then 
-			local skillIndex = survivalSkills[i]["SKILLINDEX"];
+		if(survivalSkills[pagePoint] ~= nil and survivalSkills[pagePoint]["TYPE"] == "TRADESKILL" and survivalSkills[pagePoint]["SKILLINDEX"] ~= nil) then 
+			local skillIndex = survivalSkills[pagePoint]["SKILLINDEX"];
 			local skillName, skillType, numAvailable, _ = GetTradeSkillInfo(skillIndex);
 			if(skillName ~= nil) then 
 				SurvivalUI_Craft_Slots[i]["FRAME"]:Show();
 				SurvivalUI_Craft_Slots[i]["FRAME"]:Enable();
 				
 				--Click handling
-				local multiCraftCheck = survivalSkills[i]["MULTI"];
+				local multiCraftCheck = survivalSkills[pagePoint]["MULTI"];
 				if(debug) then
 					if(multiCraftCheck) then
 						DEFAULT_CHAT_FRAME:AddMessage("MULTI assigned for "..skillName.." is true");
@@ -768,7 +895,7 @@ function SurvivalUI_UI_Update_List()
 				local multiCraftPos = i;
 				SurvivalUI_Craft_Slots[i]["FRAME"]:SetScript("OnClick", 
 				function()
-					for j=1, numSurvivalSkills, 1 do
+					for j=1, 4, 1 do
 						SurvivalUI_Craft_Slot_MultiCraft[j]["CRAFTNUM"]:ClearFocus();
 					end
 					if (multiCraftCheck) then
@@ -809,15 +936,7 @@ function SurvivalUI_UI_Update_List()
 					GameTooltip:SetOwner(this, "ANCHOR_RIGHT");
 					
 					--bodge fix until they add tooltips for these
-					if (skillName == "Traveler's Tent") then
-						GameTooltip:AddLine("Traveler's Tent", 1, 1, 1, 1);
-						GameTooltip:AddLine("Builds a tent that provides rested\nexperience to anyone in it's range.");
-					elseif (skillName == "Fishing Boat") then
-						GameTooltip:AddLine("Fishing Boat", 1, 1, 1, 1);
-						GameTooltip:AddLine("Builds fishing boat, for fishing on.\nProvides +50 to your fishing skill.");
-					else
-						GameTooltip:SetTradeSkillItem(skillIndexInternal);
-					end
+					GameTooltip:SetTradeSkillItem(skillIndexInternal);
 					
 					GameTooltip:Show();
 					CursorUpdate();
@@ -874,9 +993,9 @@ function SurvivalUI_UI_Update_List()
 				end
 			end
 
-		--Spell handling (aka the only the campfire atm)
-		elseif (survivalSkills[i]["TYPE"] == "SPELL") then
-			local spellName = survivalSkills[i]["NAME"];	
+		--Spell handling
+		elseif (survivalSkills[pagePoint] ~= nil and survivalSkills[pagePoint]["TYPE"] == "SPELL") then
+			local spellName = survivalSkills[pagePoint]["NAME"];	
 			
 			SurvivalUI_Craft_Slots[i]["FRAME"]:Show();
 			SurvivalUI_Craft_Slots[i]["FRAME"]:Enable();
@@ -890,7 +1009,7 @@ function SurvivalUI_UI_Update_List()
 				CastSpellByName(spellName);
 			end)
 			
-			spellID = SurvivalUI_GetSpellID(survivalSkills[i]["NAME"]);
+			local spellID = SurvivalUI_GetSpellID(survivalSkills[pagePoint]["NAME"]);
 			
 			--Main Icon
 			SurvivalUI_Craft_Slot_Icons[i]["TEXTURE"]:SetTexture(GetSpellTexture(spellID, BOOKTYPE_SPELL));
@@ -909,7 +1028,7 @@ function SurvivalUI_UI_Update_List()
 				end)
 			
 			--Spell skill name setup
-			SurvivalUI_Craft_Slot_Names[i]["NAME"]:SetText(survivalSkills[i]["NAME"]);
+			SurvivalUI_Craft_Slot_Names[i]["NAME"]:SetText(survivalSkills[pagePoint]["NAME"]);
 			SurvivalUI_Craft_Slot_Names[i]["NAME"]:Show();
 			
 			--Cooldown display
@@ -924,53 +1043,55 @@ function SurvivalUI_UI_Update_List()
 				SurvivalUI_Craft_Slots[i]["FRAME"]:Enable();
 			end
 			
-			for j=1, 4, 1 do
-				if (survivalSkills[i]["REAGENTS"][j] ~= nil) then	
-					local reagentName = survivalSkills[i]["REAGENTS"][j];
-					local reagentID = survivalReagents[survivalSkills[i]["REAGENTS"][j]];
-					
-					local reagentCount=1 --fixed at 1 unless something changes
-					local playerReagentCount = SurivalUI_CheckBags(reagentName);
-					
-					local _, itemLink, _, _, _, _, _, _, itemTexture, _ = GetItemInfo(reagentID)
-					SurvivalUI_Craft_Slot_Reagents[i][j]["FRAME"]:SetScript("OnEnter", 
-						function()
-							GameTooltip:ClearLines();
-							GameTooltip:SetOwner(this, "ANCHOR_RIGHT");
-							GameTooltip:SetHyperlink(itemLink);
-							GameTooltip:Show();
-							CursorUpdate();
-						end)
-					SurvivalUI_Craft_Slot_Reagents[i][j]["FRAME"]:SetScript("OnLeave", 
-						function()
-							GameTooltip:Hide();
-							ResetCursor();
-						end)
-					
-					SurvivalUI_Craft_Slot_Reagents[i][j]["TEXTURE"]:SetTexture(itemTexture);
-					if(playerReagentCount < reagentCount) then
-						SurvivalUI_Craft_Slots[i]["FRAME"]:Disable();
-						SurvivalUI_Craft_Slot_Reagents[i][j]["TEXTURE"]:SetVertexColor(0.5, 0.5, 0.5);
-					else
-						SurvivalUI_Craft_Slot_Reagents[i][j]["TEXTURE"]:SetVertexColor(1, 1, 1);
+			if(survivalSkills[pagePoint]["REAGENTS"] ~= nil) then
+				for j=1, 4, 1 do
+					if (survivalSkills[pagePoint]["REAGENTS"][j] ~= nil) then	
+						local reagentName = survivalSkills[pagePoint]["REAGENTS"][j];
+						local reagentID = survivalReagents[survivalSkills[pagePoint]["REAGENTS"][j]];
+						
+						local reagentCount=1 --fixed at 1 unless something changes
+						local playerReagentCount = SurivalUI_CheckBags(reagentName);
+						
+						local _, itemLink, _, _, _, _, _, _, itemTexture, _ = GetItemInfo(reagentID)
+						SurvivalUI_Craft_Slot_Reagents[i][j]["FRAME"]:SetScript("OnEnter", 
+							function()
+								GameTooltip:ClearLines();
+								GameTooltip:SetOwner(this, "ANCHOR_RIGHT");
+								GameTooltip:SetHyperlink(itemLink);
+								GameTooltip:Show();
+								CursorUpdate();
+							end)
+						SurvivalUI_Craft_Slot_Reagents[i][j]["FRAME"]:SetScript("OnLeave", 
+							function()
+								GameTooltip:Hide();
+								ResetCursor();
+							end)
+						
+						SurvivalUI_Craft_Slot_Reagents[i][j]["TEXTURE"]:SetTexture(itemTexture);
+						if(playerReagentCount < reagentCount) then
+							SurvivalUI_Craft_Slots[i]["FRAME"]:Disable();
+							SurvivalUI_Craft_Slot_Reagents[i][j]["TEXTURE"]:SetVertexColor(0.5, 0.5, 0.5);
+						else
+							SurvivalUI_Craft_Slot_Reagents[i][j]["TEXTURE"]:SetVertexColor(1, 1, 1);
+						end
+						
+						SurvivalUI_Craft_Slot_Reagents[i][j]["FRAME"]:Show();
+						SurvivalUI_Craft_Slot_Reagents[i][j]["TEXTURE"]:Show();
+										
+						SurvivalUI_Craft_Slot_Reagents[i][j]["COUNT"]:Show();
+						if(playerReagentCount >= 99) then
+							SurvivalUI_Craft_Slot_Reagents[i][j]["COUNT"]:SetText("*/"..reagentCount);
+						else
+							SurvivalUI_Craft_Slot_Reagents[i][j]["COUNT"]:SetText(playerReagentCount.."/"..reagentCount);
+						end
+						SurvivalUI_Craft_Slot_Reagents[i][j]["COUNT"]:Show();
 					end
-					
-					SurvivalUI_Craft_Slot_Reagents[i][j]["FRAME"]:Show();
-					SurvivalUI_Craft_Slot_Reagents[i][j]["TEXTURE"]:Show();
-									
-					SurvivalUI_Craft_Slot_Reagents[i][j]["COUNT"]:Show();
-					if(playerReagentCount >= 99) then
-						SurvivalUI_Craft_Slot_Reagents[i][j]["COUNT"]:SetText("*/"..reagentCount);
-					else
-						SurvivalUI_Craft_Slot_Reagents[i][j]["COUNT"]:SetText(playerReagentCount.."/"..reagentCount);
-					end
-					SurvivalUI_Craft_Slot_Reagents[i][j]["COUNT"]:Show();
 				end
 			end
 		end
 	end
 
-	for i=1, numSurvivalSkills, 1 do
+	for i=1, 4, 1 do
 		if(SurvivalUI_Craft_Slots[i]["FRAME"]:IsEnabled() == 1) then
 			--Animation push effect part
 			SurvivalUI_Craft_Slots[i]["FRAME"]:SetScript("OnMouseDown", 
