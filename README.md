@@ -17,4 +17,4 @@ It looks like this:
 
 You can rearrange this order by clicking the lock icon next to the close icon on the top right
 
-If you don't have the materials to make anything, they will be grayed out and unclickable.
+If you don't have the materials to make something, it will be grayed out and it becomes unclickable.
